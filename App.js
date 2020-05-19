@@ -6,12 +6,17 @@
  */
 
 // TODO: Implement the type system
-// TODO: Finish documentation
 import React from 'react';
 import {Button, Image, StyleSheet, Text, View} from 'react-native';
 import {NavigationContainer} from '@react-navigation/native';
 import {createStackNavigator} from '@react-navigation/stack';
 import {Picker} from '@react-native-community/picker';
+
+/**
+ * The number of Pokemon to include when downloading from the API (152 for first gen)
+ * @type {Number}
+ */
+const POKEMON_TO_DOWNLOAD: Number = 152;
 
 /**
  * @typedef {Object} MoveRecord
@@ -141,6 +146,7 @@ function calculateDamage(
     return Math.floor(Math.random() * 255) < critRate;
   }
 
+  // The data about how the move performed
   let returnValue: MovePerformance = {
     damage: 0,
     missed: move.accuracy <= Math.floor(Math.random() * 100),
@@ -195,6 +201,8 @@ function formatAttackMessage(name, moveName, movePerformance) {
 class PokemonPickerView extends React.Component {
   constructor(props) {
     super(props);
+
+    // Reuse the existing local version of the pokemon list if given to the view
     let listOfPokemon: Array<Pokemon> = [];
     // noinspection JSUnresolvedVariable - Pokemon is being tested for existance
     if (props.route && props.route.params && props.route.params.pokemon) {
@@ -224,9 +232,13 @@ class PokemonPickerView extends React.Component {
     }
   }
 
+  /**
+   * Downloads all Pokemon for the generation (based on the value of {@code POKEMON_TO_DOWNLOAD})
+   * @return {Promise<void>}
+   */
   async getPokemon() {
     let pokemonFetched = [];
-    for (let i = 1; i < 152 && this.state.error == null; i++) {
+    for (let i = 1; i < POKEMON_TO_DOWNLOAD && this.state.error == null; i++) {
       await fetch('https://pokeapi.co/api/v2/pokemon/' + i)
         .then((result) => result.json())
         .then(
@@ -284,6 +296,9 @@ class PokemonPickerView extends React.Component {
   }
 }
 
+/**
+ * Generates the view for the battle interaction screen
+ */
 class BattleView extends React.Component {
   constructor(props: Props) {
     super(props);
@@ -313,6 +328,10 @@ class BattleView extends React.Component {
     }
   }
 
+  /**
+   * Get the Pokemon associated with the user
+   * @return {Pokemon} the Pokemon associated with the user
+   */
   getUserPokemon(): Pokemon {
     return (
       this.state.listOfPokemon &&
@@ -320,6 +339,10 @@ class BattleView extends React.Component {
     );
   }
 
+  /**
+   * Get the Pokemon associated with the opponent
+   * @return {Pokemon} the Pokemon associated with the opponent
+   */
   getOpponentPokemon(): Pokemon {
     return (
       this.state.listOfPokemon &&
@@ -327,7 +350,12 @@ class BattleView extends React.Component {
     );
   }
 
-  async getMoves(pokemon) {
+  /**
+   * Get all move details associated with a given Pokemon
+   * @param {Pokemon} pokemon The pokemon for which the moves are being sought after
+   * @return {Promise<[].<MoveRecord>>} The list of MoveRecords found with valid associations
+   */
+  async getMoves(pokemon: Pokemon) {
     let moves = pokemon.moves;
     let moveItems = [];
     for (let i = 0; i < moves.length; i++) {
@@ -360,23 +388,33 @@ class BattleView extends React.Component {
     return moveItems;
   }
 
+  /**
+   * Convert the user's moves into a picker to allow for UI selection
+   * @return {React$Node} A {@link Picker} if the moves have been loaded for both sides, else a {@link Text} describing what is causing the delay
+   */
   getMovePicker(): React$Node {
     if (!this.state.opponentMoves.isLoaded) {
+      // Waiting on the opponent's move list to be loaded
       return (
         <Text>
           Loading {titleCase(this.getOpponentPokemon().name)}'s Moves...
         </Text>
       );
     } else if (!this.state.userMoves.isLoaded) {
+      // Waiting on the user's move list to be loaded
       return (
         <Text>Loading {titleCase(this.getUserPokemon().name)}'s Moves...</Text>
       );
     } else if (this.state.movePickerItems.length === 0) {
+      // Generate the user's picker entries
       if (this.state.userMoves.isCopyCat) {
+        // Account for Pokemon who use their opponent's moves (ie Ditto)
         this.state.userMoves.moves[0] = this.state.opponentMoves.moves[
           Math.floor(Math.random() * this.state.opponentMoves.moves.length)
         ];
       }
+
+      // Map moves onto a list of Picker Item entries
       let movePickerItems = this.state.userMoves.moves.map((m, i) => {
         return <Picker.Item label={titleCase(m.name)} value={i} key={i} />;
       });
@@ -393,6 +431,10 @@ class BattleView extends React.Component {
     );
   }
 
+  /**
+   * Setups the data needed to start a new battle (be it the first, or a followup to a previous battle)
+   * @return {Promise<void>}
+   */
   async startBattle() {
     let newOpponentIndex = Math.floor(
       Math.random() * this.state.listOfPokemon.length,
@@ -445,6 +487,9 @@ class BattleView extends React.Component {
     }
   }
 
+  /**
+   * Chooses a move for the opponent to use and then performs the attack and updates the game state accordingly
+   */
   processOpponentAttack() {
     let move;
     if (this.state.opponentMoves.isCopyCat) {
@@ -479,6 +524,9 @@ class BattleView extends React.Component {
     });
   }
 
+  /**
+   * Performs the user chosen move and updates the game state accordingly
+   */
   processUserAttack() {
     const user = this.getUserPokemon();
     const move = this.state.userMoves.moves[this.state.selectedMoveIndex];
@@ -527,6 +575,7 @@ class BattleView extends React.Component {
         this.state.opponentMoves.isLoaded
       ) {
         if (this.state.userHealth === 0) {
+          // User Pokemon was knocked out, allow game restart (kicks the user back to the Pokemon picker page)
           actionButton = (
             <Button
               color="#dc3545"
@@ -540,6 +589,7 @@ class BattleView extends React.Component {
             />
           );
         } else if (this.state.opponentHealth === 0) {
+          // Opponent was knocked out. Allow the user to start a new battle
           actionButton = (
             <Button
               color="#28a745"
@@ -548,6 +598,7 @@ class BattleView extends React.Component {
             />
           );
         } else {
+          // Battle continues
           actionButton = (
             <Button title="Attack" onPress={() => this.attack()} />
           );
