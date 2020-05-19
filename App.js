@@ -14,16 +14,22 @@ import {createStackNavigator} from '@react-navigation/stack';
 import {Picker} from '@react-native-community/picker';
 
 /**
+ * @typedef {Object} MoveRecord
+ * @property {String} name
+ * @property {String} type
+ * @property {Number} power
+ * @property {Number} accuracy
+ */
+
+/**
  * @typedef {Object} PokemonAttackMove
  * @property {String} name
- * @property {Array.<PokemonAttackMove>} url
+ * @property {String} url
  */
 
 /**
  * @typedef {Object} Stat
  * @property {String} name
- * @property {Number} power
- * @property {Number} accuracy
  */
 
 /**
@@ -40,11 +46,20 @@ import {Picker} from '@react-native-community/picker';
  */
 
 /**
+ * @typedef {Object} Type
+ * @property {Number} slot
+ * @property {Object} type
+ * @property {String} type.name
+ * @property {String} type.url
+ */
+
+/**
  * @typedef {Object} Pokemon
  * @property {String} name
  * @property {Array.<PokemonAttackMove>} moves
  * @property {Array.<StatCollection>} stats
  * @property {PokemonCharacterSprite} sprites
+ * @property {Array.<Type>} types
  */
 
 /**
@@ -78,46 +93,67 @@ function findStat(userPokemon, statName: String): Number {
 /**
  * Calculates the damage associated with the move being performed
  * @param level {Number} The level of the Pokemon
- * @param accuracy {Number} The accuracy of the move
- * @param power {Number} The power of the move
+ * @param move {MoveRecord} The details about the move performed
  * @param attack {Number} The attack value of the Pokemon
  * @param opponentDefense {Number} The defense value of the opponent Pokemon
  * @param speed {Number} The speed of the Pokemon
- * @returns {{damage: number, criticalHit: boolean, missed: boolean}} The damage done, and booleans representing if the move was a critical hit or a miss (the booleans are exclusive)
+ * @param typesOfPokemon {Array.<Type>} The types of Pokemon performing the move
+ * @returns {{damage: number, criticalHit: boolean, missed: boolean, stab: boolean}} The damage done, and booleans representing if the move was a critical hit or a miss (the booleans are exclusive)
  */
 function calculateDamage(
   level: Number,
-  accuracy: Number,
-  power: Number,
+  move: MoveRecord,
   attack: Number,
   opponentDefense: Number,
   speed: Number,
+  typesOfPokemon: Array<Type>,
 ) {
+  /**
+   * Checks if the move performed gets a same-type attack bonus (STAB)
+   * @param {String} moveType The type of the move performed
+   * @param {Array.<Type>} pokemonTypes The types associated with the pokemon performing the move
+   * @return {Boolean} True iff the move earns a STAB
+   */
+  function didStab(moveType: String, pokemonTypes: Array<Type>) {
+    for (let i = 0; i < pokemonTypes.length; i++) {
+      if (pokemonTypes[i].type.name === moveType) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   /**
    * Calculates if the hit was landed critically
    * @param pokemonSpeed The speed of the pokemon in question
    * @returns {boolean} True iff the critical hit was landed, else false
    */
-  function didCriticallyHit(pokemonSpeed: Number) {
+  function didCriticallyHit(pokemonSpeed: Number): Boolean {
     let critRate = Math.min(Math.floor(pokemonSpeed / 2), 255);
     return Math.floor(Math.random() * 255) < critRate;
   }
 
   let returnValue = {
     damage: 0,
-    missed: accuracy <= Math.floor(Math.random() * 100),
+    missed: move.accuracy <= Math.floor(Math.random() * 100),
     criticalHit: didCriticallyHit(speed),
+    stab: didStab(move.type, typesOfPokemon),
   };
   if (!returnValue.missed) {
     // Use the convoluted equation for attack damage Pokemon uses
     returnValue.damage =
       Math.floor(
         Math.floor(
-          (Math.floor((2 * level) / 5 + 2) * attack * power) / opponentDefense,
+          (Math.floor((2 * level) / 5 + 2) * attack * move.power) /
+            opponentDefense,
         ) / 50,
       ) + 2;
 
     if (returnValue.criticalHit) {
+      returnValue.damage *= 1.5;
+    }
+    if (returnValue.stab) {
+      // Same-type attack bonus (STAB)
       returnValue.damage *= 1.5;
     }
   }
@@ -128,7 +164,7 @@ function calculateDamage(
  * Create a message describing the move performed
  * @param name {String} The name of the Pokemon
  * @param moveName {String} The name of the move performed
- * @param movePerformance {{damage: number, criticalHit: boolean, missed: boolean}} The information pertaining to the move's performance (as defined by {@link calculateDamage})
+ * @param movePerformance {{damage: number, criticalHit: boolean, missed: boolean, stab: boolean}} The information pertaining to the move's performance (as defined by {@link calculateDamage})
  * @returns {undefined}
  */
 function formatAttackMessage(name, moveName, movePerformance) {
@@ -138,7 +174,9 @@ function formatAttackMessage(name, moveName, movePerformance) {
   } else {
     return `${titledName} used ${moveName} and hit ${
       movePerformance.criticalHit ? 'critically ' : ''
-    }for ${movePerformance.damage} damage`;
+    }for ${movePerformance.damage} damage${
+      movePerformance.stab ? ' (STAB)' : ''
+    }`;
   }
 }
 
@@ -286,6 +324,7 @@ class BattleView extends React.Component {
       let moveName = titleCase(moves[i].move.name);
       let movePower: Number = -1;
       let moveAccuracy: Number = 100;
+      let moveType: String = null;
       await fetch(moves[i].move.url)
         .then((result) => result.json())
         .then((result) => {
@@ -295,12 +334,16 @@ class BattleView extends React.Component {
           if (result.accuracy && !isNaN(result.accuracy)) {
             moveAccuracy = result.accuracy;
           }
+          if (result.type && result.type.name) {
+            moveType = result.type.name;
+          }
         });
       if (movePower !== -1) {
         moveItems.push({
           accuracy: moveAccuracy,
           name: moveName,
           power: movePower,
+          type: moveType,
         });
       }
     }
@@ -408,11 +451,11 @@ class BattleView extends React.Component {
     const opponent = this.getOpponentPokemon();
     const movePerformance = calculateDamage(
       isNaN(opponent.level) ? 1 : opponent.level,
-      move.accuracy,
-      move.power,
+      move,
       findStat(opponent, 'attack'),
       findStat(this.getUserPokemon(), 'defense'),
       findStat(opponent, 'speed'),
+      opponent.types,
     );
     const userNewHealth = Math.max(
       0,
@@ -433,11 +476,11 @@ class BattleView extends React.Component {
     const move = this.state.userMoves.moves[this.state.selectedMoveIndex];
     const movePerformance = calculateDamage(
       isNaN(user.level) ? 1 : user.level,
-      move.accuracy,
-      move.power,
+      move,
       findStat(user, 'attack'),
       findStat(this.getOpponentPokemon(), 'defense'),
       findStat(user, 'speed'),
+      user.types,
     );
     this.state.opponentHealth = Math.max(
       0,
