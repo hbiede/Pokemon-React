@@ -1,305 +1,35 @@
 /**
- * Pokemon Battle app built in React Native
+ * Generates the view for the battle interaction screen
  *
  * @format
  * @flow strict-local
  */
 
-// TODO: Implement the type system
 import React from 'react';
+import {
+  calculateDamage,
+  findStat,
+  formatAttackMessage,
+  titleCase,
+} from '../utils';
 import {Button, Image, StyleSheet, Text, View} from 'react-native';
-import {NavigationContainer} from '@react-navigation/native';
-import {createStackNavigator} from '@react-navigation/stack';
 import {Picker} from '@react-native-community/picker';
 
-/**
- * The number of Pokemon to include when downloading from the API (152 for first gen)
- * @type {Number}
- */
-const POKEMON_TO_DOWNLOAD: Number = 152;
+const styles = StyleSheet.create({
+  userPokemon: {
+    paddingTop: 150,
+    width: 'auto',
+  },
+  opponentPokemon: {
+    paddingTop: 200,
+    width: 'auto',
+  },
+  center: {
+    textAlign: 'center',
+  },
+});
 
-/**
- * @typedef {Object} MoveRecord
- * @property {String} name
- * @property {String} type
- * @property {Number} power
- * @property {Number} accuracy
- */
-
-/**
- * @typedef {Object} MovePerformance
- * @property {Number} damage
- * @property {Boolean} criticalHit
- * @property {Boolean} missed
- * @property {Boolean} stab
- */
-
-/**
- * @typedef {Object} PokemonAttackMove
- * @property {String} name
- * @property {String} url
- */
-
-/**
- * @typedef {Object} Stat
- * @property {String} name
- */
-
-/**
- * @typedef {Object} StatCollection
- * @property {String} name
- * @property {Number} base_stat
- * @property {Stat} stat
- */
-
-/**
- * @typedef {Object} PokemonCharacterSprite
- * @property {String} front_default
- * @property {String} back_default
- */
-
-/**
- * @typedef {Object} Type
- * @property {Number} slot
- * @property {Object} type
- * @property {String} type.name
- * @property {String} type.url
- */
-
-/**
- * @typedef {Object} Pokemon
- * @property {String} name
- * @property {Array.<PokemonAttackMove>} moves
- * @property {Array.<StatCollection>} stats
- * @property {PokemonCharacterSprite} sprites
- * @property {Array.<Type>} types
- */
-
-/**
- * Converts the first letter of a string to a capital letter
- * @param input {string} The string to be converted
- * @returns {string} The input string with the first character made capital
- */
-function titleCase(input: String): String {
-  return input[0].toUpperCase() + input.substring(1);
-}
-
-/**
- * Takes a Pokemon JSON object and search for a stat with the given name
- * @param userPokemon An object describing a Pokemon (will contain an array `stats` ideally containing the stat desired
- * @param statName {string} The name of the stat being sought after
- * @returns {number|*} The value associated with the statName given. Returns -1 if the stat does not exist, and -2 if the object given is invalid
- */
-function findStat(userPokemon, statName: String): Number {
-  if (!userPokemon.stats) {
-    return -2;
-  }
-  for (let i = 0; i < userPokemon.stats.length; i++) {
-    if (statName === userPokemon.stats[i].stat.name) {
-      return userPokemon.stats[i].base_stat;
-    }
-  }
-
-  return -1;
-}
-
-/**
- * Calculates the damage associated with the move being performed
- * @param level {Number} The level of the Pokemon
- * @param move {MoveRecord} The details about the move performed
- * @param attack {Number} The attack value of the Pokemon
- * @param opponentDefense {Number} The defense value of the opponent Pokemon
- * @param speed {Number} The speed of the Pokemon
- * @param typesOfPokemon {Array.<Type>} The types of Pokemon performing the move
- * @returns {MovePerformance} The damage done, and booleans representing if the move was a critical hit or a miss (the booleans are exclusive)
- */
-function calculateDamage(
-  level: Number,
-  move: MoveRecord,
-  attack: Number,
-  opponentDefense: Number,
-  speed: Number,
-  typesOfPokemon: Array<Type>,
-) {
-  /**
-   * Checks if the move performed gets a same-type attack bonus (STAB)
-   * @param {String} moveType The type of the move performed
-   * @param {Array.<Type>} pokemonTypes The types associated with the pokemon performing the move
-   * @return {Boolean} True iff the move earns a STAB
-   */
-  function didStab(moveType: String, pokemonTypes: Array<Type>) {
-    for (let i = 0; i < pokemonTypes.length; i++) {
-      if (pokemonTypes[i].type.name === moveType) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  /**
-   * Calculates if the hit was landed critically
-   * @param pokemonSpeed The speed of the pokemon in question
-   * @returns {boolean} True iff the critical hit was landed, else false
-   */
-  function didCriticallyHit(pokemonSpeed: Number): Boolean {
-    let critRate = Math.min(Math.floor(pokemonSpeed / 2), 255);
-    return Math.floor(Math.random() * 255) < critRate;
-  }
-
-  // The data about how the move performed
-  let returnValue: MovePerformance = {
-    damage: 0,
-    missed: move.accuracy <= Math.floor(Math.random() * 100),
-    criticalHit: didCriticallyHit(speed),
-    stab: didStab(move.type, typesOfPokemon),
-  };
-
-  if (!returnValue.missed) {
-    // Use the convoluted equation for attack damage Pokemon uses
-    returnValue.damage =
-      Math.floor(
-        Math.floor(
-          (Math.floor((2 * level) / 5 + 2) * attack * move.power) /
-            opponentDefense,
-        ) / 50,
-      ) + 2;
-
-    if (returnValue.criticalHit) {
-      returnValue.damage *= 1.5;
-    }
-    if (returnValue.stab) {
-      // Same-type attack bonus (STAB)
-      returnValue.damage *= 1.5;
-    }
-  }
-  return returnValue;
-}
-
-/**
- * Create a message describing the move performed
- * @param name {String} The name of the Pokemon
- * @param moveName {String} The name of the move performed
- * @param movePerformance {MovePerformance} The information pertaining to the move's performance (as defined by {@link calculateDamage})
- * @returns {undefined}
- */
-function formatAttackMessage(name, moveName, movePerformance) {
-  let titledName = titleCase(name);
-  if (movePerformance.missed) {
-    return `${titledName} missed`;
-  } else {
-    return `${titledName} used ${moveName} and hit ${
-      movePerformance.criticalHit ? 'critically ' : ''
-    }for ${movePerformance.damage} damage${
-      movePerformance.stab ? ' (STAB)' : ''
-    }`;
-  }
-}
-
-/**
- * The view used to display the initial Pokemon picker pre-battle
- */
-class PokemonPickerView extends React.Component {
-  constructor(props) {
-    super(props);
-
-    // Reuse the existing local version of the pokemon list if given to the view
-    let listOfPokemon: Array<Pokemon> = [];
-    // noinspection JSUnresolvedVariable - Pokemon is being tested for existance
-    if (props.route && props.route.params && props.route.params.pokemon) {
-      // noinspection JSUnresolvedVariable
-      listOfPokemon = props.route.params.pokemon;
-    }
-
-    let selectedPokemonIndex = 0;
-    if (
-      props.route &&
-      props.route.params &&
-      props.route.params.selectedPokemonIndex &&
-      !isNaN(props.route.params.selectedPokemonIndex)
-    ) {
-      // Allow a previously used pokemon to continue being selected after going back
-      selectedPokemonIndex = props.route.params.selectedPokemonIndex;
-    }
-    this.state = {
-      navigation: props.navigation,
-      listOfPokemon: listOfPokemon,
-      error: null,
-      selectedPokemonIndex: selectedPokemonIndex,
-    };
-    if (listOfPokemon.length === 0) {
-      // noinspection JSIgnoredPromiseFromCall
-      this.getPokemon();
-    }
-  }
-
-  /**
-   * Downloads all Pokemon for the generation (based on the value of {@code POKEMON_TO_DOWNLOAD})
-   * @return {Promise<void>}
-   */
-  async getPokemon() {
-    let pokemonFetched = [];
-    for (let i = 1; i < POKEMON_TO_DOWNLOAD && this.state.error == null; i++) {
-      await fetch('https://pokeapi.co/api/v2/pokemon/' + i)
-        .then((result) => result.json())
-        .then(
-          (result) => pokemonFetched.push(result),
-          (error) =>
-            this.setState({
-              error: error,
-            }),
-        );
-    }
-    if (pokemonFetched.length > 0) {
-      this.setState({listOfPokemon: pokemonFetched});
-    } else {
-      this.setState({error: 'No Pokemon Found'});
-    }
-  }
-
-  render(): View {
-    if (this.state.error) {
-      return <Text>Error: {this.state.error}</Text>;
-    } else if (this.state.listOfPokemon.length > 0) {
-      let pokemonListEntries = this.state.listOfPokemon.map((s, i) => {
-        return (
-          <Picker.Item
-            label={`${titleCase(s.name)} - #${i + 1}`}
-            value={i}
-            key={i}
-          />
-        );
-      });
-
-      return (
-        <View>
-          <Picker
-            selectedValue={this.state.selectedPokemonIndex}
-            onValueChange={(pokemon) =>
-              this.setState({selectedPokemonIndex: pokemon})
-            }>
-            {pokemonListEntries}
-          </Picker>
-          <Button
-            title="Battle!"
-            onPress={() =>
-              this.state.navigation.navigate('Battle!', {
-                selectedPokemonIndex: this.state.selectedPokemonIndex,
-                listOfPokemon: this.state.listOfPokemon,
-              })
-            }
-          />
-        </View>
-      );
-    } else {
-      return <Text>Loading...</Text>;
-    }
-  }
-}
-
-/**
- * Generates the view for the battle interaction screen
- */
-class BattleView extends React.Component {
+export class BattleView extends React.Component {
   constructor(props: Props) {
     super(props);
     const {selectedPokemonIndex, listOfPokemon} = props.route.params;
@@ -641,30 +371,3 @@ class BattleView extends React.Component {
     }
   }
 }
-
-const styles = StyleSheet.create({
-  userPokemon: {
-    paddingTop: 150,
-    width: 'auto',
-  },
-  opponentPokemon: {
-    paddingTop: 200,
-    width: 'auto',
-  },
-  center: {
-    textAlign: 'center',
-  },
-});
-const Stack = createStackNavigator();
-const App: () => React$Node = () => {
-  return (
-    <NavigationContainer>
-      <Stack.Navigator initialRouteName="Pick your Pokemon">
-        <Stack.Screen name="Pick your Pokemon" component={PokemonPickerView} />
-        <Stack.Screen name="Battle!" component={BattleView} />
-      </Stack.Navigator>
-    </NavigationContainer>
-  );
-};
-
-export default App;
