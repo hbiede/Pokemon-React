@@ -22,6 +22,14 @@ import {Picker} from '@react-native-community/picker';
  */
 
 /**
+ * @typedef {Object} MovePerformance
+ * @property {Number} damage
+ * @property {Boolean} criticalHit
+ * @property {Boolean} missed
+ * @property {Boolean} stab
+ */
+
+/**
  * @typedef {Object} PokemonAttackMove
  * @property {String} name
  * @property {String} url
@@ -98,7 +106,7 @@ function findStat(userPokemon, statName: String): Number {
  * @param opponentDefense {Number} The defense value of the opponent Pokemon
  * @param speed {Number} The speed of the Pokemon
  * @param typesOfPokemon {Array.<Type>} The types of Pokemon performing the move
- * @returns {{damage: number, criticalHit: boolean, missed: boolean, stab: boolean}} The damage done, and booleans representing if the move was a critical hit or a miss (the booleans are exclusive)
+ * @returns {MovePerformance} The damage done, and booleans representing if the move was a critical hit or a miss (the booleans are exclusive)
  */
 function calculateDamage(
   level: Number,
@@ -133,12 +141,13 @@ function calculateDamage(
     return Math.floor(Math.random() * 255) < critRate;
   }
 
-  let returnValue = {
+  let returnValue: MovePerformance = {
     damage: 0,
     missed: move.accuracy <= Math.floor(Math.random() * 100),
     criticalHit: didCriticallyHit(speed),
     stab: didStab(move.type, typesOfPokemon),
   };
+
   if (!returnValue.missed) {
     // Use the convoluted equation for attack damage Pokemon uses
     returnValue.damage =
@@ -164,7 +173,7 @@ function calculateDamage(
  * Create a message describing the move performed
  * @param name {String} The name of the Pokemon
  * @param moveName {String} The name of the move performed
- * @param movePerformance {{damage: number, criticalHit: boolean, missed: boolean, stab: boolean}} The information pertaining to the move's performance (as defined by {@link calculateDamage})
+ * @param movePerformance {MovePerformance} The information pertaining to the move's performance (as defined by {@link calculateDamage})
  * @returns {undefined}
  */
 function formatAttackMessage(name, moveName, movePerformance) {
@@ -180,14 +189,14 @@ function formatAttackMessage(name, moveName, movePerformance) {
   }
 }
 
+/**
+ * The view used to display the initial Pokemon picker pre-battle
+ */
 class PokemonPickerView extends React.Component {
   constructor(props) {
     super(props);
-    /**
-     * @type {Array.<Pokemon>}
-     */
-    let listOfPokemon = [];
-    // noinspection JSUnresolvedVariable
+    let listOfPokemon: Array<Pokemon> = [];
+    // noinspection JSUnresolvedVariable - Pokemon is being tested for existance
     if (props.route && props.route.params && props.route.params.pokemon) {
       // noinspection JSUnresolvedVariable
       listOfPokemon = props.route.params.pokemon;
@@ -200,6 +209,7 @@ class PokemonPickerView extends React.Component {
       props.route.params.selectedPokemonIndex &&
       !isNaN(props.route.params.selectedPokemonIndex)
     ) {
+      // Allow a previously used pokemon to continue being selected after going back
       selectedPokemonIndex = props.route.params.selectedPokemonIndex;
     }
     this.state = {
@@ -394,16 +404,16 @@ class BattleView extends React.Component {
     );
 
     // Used to trigger a re-render for new opponents
-    this.setState({userLastUsedMove: '', opponentLastUsedMove: ''});
+    if (this.state.userLastUsedMove.length !== 0) {
+      this.setState({userLastUsedMove: '', opponentLastUsedMove: ''});
+    }
 
     let oppMoves = await this.getMoves(this.getOpponentPokemon());
-    this.setState({
-      opponentMoves: {
-        moves: oppMoves,
-        isCopyCat: oppMoves.length === 0,
-        isLoaded: true,
-      },
-    });
+    this.state.opponentMoves = {
+      moves: oppMoves,
+      isCopyCat: oppMoves.length === 0,
+      isLoaded: true,
+    };
     if (this.state.userMoves.isLoaded) {
       if (this.state.userMoves.isCopyCat) {
         // Allow the Picker to have a new random move to copy for the new opponent
@@ -411,13 +421,11 @@ class BattleView extends React.Component {
       }
     } else {
       let userMoves = await this.getMoves(this.getUserPokemon());
-      this.setState({
-        userMoves: {
-          moves: userMoves,
-          isCopyCat: userMoves.length === 0,
-          isLoaded: true,
-        },
-      });
+      this.state.userMoves = {
+        moves: userMoves,
+        isCopyCat: userMoves.length === 0,
+        isLoaded: true,
+      };
       this.getMovePicker();
     }
   }
@@ -523,7 +531,12 @@ class BattleView extends React.Component {
             <Button
               color="#dc3545"
               title="Restart"
-              onPress={() => this.state.navigation.goBack()}
+              onPress={() =>
+                this.state.navigation.navigate('Pick your Pokemon', {
+                  selectedPokemonIndex: this.state.selectedPokemonIndex,
+                  pokemon: this.state.listOfPokemon,
+                })
+              }
             />
           );
         } else if (this.state.opponentHealth === 0) {
