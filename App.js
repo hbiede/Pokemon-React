@@ -5,8 +5,6 @@
  * @flow strict-local
  */
 
-// TODO: Count number of victories and display when defeated
-// TODO: Color buttons based on state
 // TODO: Implement the type system
 // TODO: Finish documentation
 import React from 'react';
@@ -257,6 +255,7 @@ class BattleView extends React.Component {
         opponentMoves: {moves: [], isCopyCat: false, isLoaded: false},
         movePickerItems: [],
         selectedMoveIndex: 0,
+        victories: 0,
       };
 
       // noinspection JSIgnoredPromiseFromCall
@@ -440,11 +439,10 @@ class BattleView extends React.Component {
       findStat(this.getOpponentPokemon(), 'defense'),
       findStat(user, 'speed'),
     );
-    const opponentNewHealth = Math.max(
+    this.state.opponentHealth = Math.max(
       0,
       this.state.opponentHealth - movePerformance.damage,
     );
-    this.setState({opponentHealth: opponentNewHealth});
     this.setState({
       userLastUsedMove: formatAttackMessage(
         user.name,
@@ -465,6 +463,9 @@ class BattleView extends React.Component {
       this.processUserAttack();
       this.processOpponentAttack();
     }
+    if (this.state.opponentHealth === 0) {
+      this.state.victories++;
+    }
   }
 
   render(): React$Node {
@@ -477,13 +478,18 @@ class BattleView extends React.Component {
         if (this.state.userHealth === 0) {
           actionButton = (
             <Button
+              color="#dc3545"
               title="Restart"
               onPress={() => this.state.navigation.goBack()}
             />
           );
         } else if (this.state.opponentHealth === 0) {
           actionButton = (
-            <Button title="New Opponent" onPress={() => this.startBattle()} />
+            <Button
+              color="#28a745"
+              title="New Opponent"
+              onPress={() => this.startBattle()}
+            />
           );
         } else {
           actionButton = (
@@ -494,6 +500,7 @@ class BattleView extends React.Component {
 
       return (
         <View>
+          <Text style={styles.center}>{this.state.victories} Battle Wins</Text>
           <Image
             style={styles.opponentPokemon}
             source={{
