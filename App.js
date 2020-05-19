@@ -6,7 +6,9 @@
  */
 
 // TODO: Count number of victories and display when defeated
-// TODO: Deal with Ditto's lack of moves
+// TODO: Color buttons based on state
+// TODO: Implement the type system
+// TODO: Finish documentation
 import React from 'react';
 import {Button, Image, StyleSheet, Text, View} from 'react-native';
 import {NavigationContainer} from '@react-navigation/native';
@@ -201,7 +203,13 @@ class PokemonPickerView extends React.Component {
       return <Text>Error: {this.state.error}</Text>;
     } else if (this.state.listOfPokemon.length > 0) {
       let pokemonListEntries = this.state.listOfPokemon.map((s, i) => {
-        return <Picker.Item label={titleCase(s.name)} value={i} key={i} />;
+        return (
+          <Picker.Item
+            label={`${titleCase(s.name)} - #${i + 1}`}
+            value={i}
+            key={i}
+          />
+        );
       });
 
       return (
@@ -245,8 +253,8 @@ class BattleView extends React.Component {
         opponentHealth: 0,
         userLastUsedMove: '',
         opponentLastUsedMove: '',
-        userMoves: [],
-        opponentMoves: [],
+        userMoves: {moves: [], isCopyCat: false, isLoaded: false},
+        opponentMoves: {moves: [], isCopyCat: false, isLoaded: false},
         movePickerItems: [],
         selectedMoveIndex: 0,
       };
@@ -301,18 +309,23 @@ class BattleView extends React.Component {
   }
 
   getMovePicker(): React$Node {
-    if (this.state.opponentMoves.length === 0) {
+    if (!this.state.opponentMoves.isLoaded) {
       return (
         <Text>
           Loading {titleCase(this.getOpponentPokemon().name)}'s Moves...
         </Text>
       );
-    } else if (this.state.userMoves.length === 0) {
+    } else if (!this.state.userMoves.isLoaded) {
       return (
         <Text>Loading {titleCase(this.getUserPokemon().name)}'s Moves...</Text>
       );
     } else if (this.state.movePickerItems.length === 0) {
-      let movePickerItems = this.state.userMoves.map((m, i) => {
+      if (this.state.userMoves.isCopyCat) {
+        this.state.userMoves.moves[0] = this.state.opponentMoves.moves[
+          Math.floor(Math.random() * this.state.opponentMoves.moves.length)
+        ];
+      }
+      let movePickerItems = this.state.userMoves.moves.map((m, i) => {
         return <Picker.Item label={titleCase(m.name)} value={i} key={i} />;
       });
       this.setState({movePickerItems: movePickerItems});
@@ -341,12 +354,27 @@ class BattleView extends React.Component {
     // Used to trigger a re-render for new opponents
     this.setState({userLastUsedMove: '', opponentLastUsedMove: ''});
 
+    let oppMoves = await this.getMoves(this.getOpponentPokemon());
     this.setState({
-      opponentMoves: await this.getMoves(this.getOpponentPokemon()),
+      opponentMoves: {
+        moves: oppMoves,
+        isCopyCat: oppMoves.length === 0,
+        isLoaded: true,
+      },
     });
-    if (this.state.userMoves.length === 0) {
+    if (this.state.userMoves.isLoaded) {
+      if (this.state.userMoves.isCopyCat) {
+        // Allow the Picker to have a new random move to copy for the new opponent
+        this.state.movePickerItems = [];
+      }
+    } else {
+      let userMoves = await this.getMoves(this.getUserPokemon());
       this.setState({
-        userMoves: await this.getMoves(this.getUserPokemon()),
+        userMoves: {
+          moves: userMoves,
+          isCopyCat: userMoves.length === 0,
+          isLoaded: true,
+        },
       });
       this.getMovePicker();
     }
@@ -368,9 +396,16 @@ class BattleView extends React.Component {
   }
 
   processOpponentAttack() {
-    const move = this.state.opponentMoves[
-      Math.floor(this.state.opponentMoves.length * Math.random())
-    ];
+    let move;
+    if (this.state.opponentMoves.isCopyCat) {
+      move = this.state.userMoves.moves[
+        Math.floor(this.state.userMoves.moves.length * Math.random())
+      ];
+    } else {
+      move = this.state.opponentMoves.moves[
+        Math.floor(this.state.opponentMoves.moves.length * Math.random())
+      ];
+    }
     const opponent = this.getOpponentPokemon();
     const movePerformance = calculateDamage(
       isNaN(opponent.level) ? 1 : opponent.level,
@@ -384,8 +419,8 @@ class BattleView extends React.Component {
       0,
       this.state.userHealth - movePerformance.damage,
     );
-    this.setState({userHealth: userNewHealth});
     this.setState({
+      userHealth: userNewHealth,
       opponentLastUsedMove: formatAttackMessage(
         opponent.name,
         move.name,
@@ -396,7 +431,7 @@ class BattleView extends React.Component {
 
   processUserAttack() {
     const user = this.getUserPokemon();
-    const move = this.state.userMoves[this.state.selectedMoveIndex];
+    const move = this.state.userMoves.moves[this.state.selectedMoveIndex];
     const movePerformance = calculateDamage(
       isNaN(user.level) ? 1 : user.level,
       move.accuracy,
@@ -434,24 +469,10 @@ class BattleView extends React.Component {
 
   render(): React$Node {
     if (this.getUserPokemon()) {
-      let opponentMoveReport = null;
-      if (this.state.opponentLastUsedMove.length !== 0) {
-        opponentMoveReport = (
-          <Text style={styles.center}>{this.state.opponentLastUsedMove}</Text>
-        );
-      }
-
-      let userMoveReport = null;
-      if (this.state.userLastUsedMove.length !== 0) {
-        userMoveReport = (
-          <Text style={styles.center}>{this.state.userLastUsedMove}</Text>
-        );
-      }
-
       let actionButton = null;
       if (
         this.state.movePickerItems.length > 0 &&
-        this.state.opponentMoves.length
+        this.state.opponentMoves.isLoaded
       ) {
         if (this.state.userHealth === 0) {
           actionButton = (
@@ -495,8 +516,8 @@ class BattleView extends React.Component {
             {titleCase(this.getUserPokemon().name)}'s Health:{' '}
             {this.state.userHealth}
           </Text>
-          {opponentMoveReport}
-          {userMoveReport}
+          <Text style={styles.center}>{this.state.opponentLastUsedMove}</Text>
+          <Text style={styles.center}>{this.state.userLastUsedMove}</Text>
           {this.getMovePicker()}
           {actionButton}
         </View>
