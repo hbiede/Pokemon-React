@@ -1,5 +1,5 @@
 {
-  "name": "Code",
+  "name": "Pokemon-React",
   "version": "0.0.1",
   "private": true,
   "scripts": {
@@ -15,6 +15,7 @@
     "@react-navigation/native": "^5.3.2",
     "@react-navigation/stack": "^5.3.6",
     "all": "^0.0.0",
+    "jest-junit": "^10.0.0",
     "react": "16.11.0",
     "react-dom": "^16.13.1",
     "react-native": "0.62.2",
@@ -33,6 +34,42 @@
     "react-test-renderer": "16.11.0"
   },
   "jest": {
-    "preset": "react-native"
+    "preset": "react-native",
+    "collectCoverage": true,
+    "testRegex": "(/__tests__/(?!.*testdata).*|(\\.|/)(test|spec))\\.[jt]sx?$",
+    "collectCoverageFrom": [
+      "**/*.js",
+      "**/*.ts",
+      "**/*.jsx",
+      "**/*.tsx",
+      "!**/*.testdata.js",
+      "!**/@types/**",
+      "!**/utils/TestHelper.js",
+      "!**/node_modules/**",
+      "!**/lib/*.js",
+      "!**/coverage/**",
+      "!**/jest-setup.js",
+      "!**/babel.config.js"
+    ],
+    "transformIgnorePatterns": [
+      "node_modules/(?!(((jest-|sentry-)?expo(nent|-constants|-location|-asset|-react-native-adapter|-font)?|@expo(nent)?/.*|@unimodules/.*|unimodules-permissions-interface|@sentry/react-native)|(react-clone-referenced-element|react-navigation(-stack)?|lodash)|(react-native(-modal-datetime-picker|-modal|-animatable|-iphone-x-helper|-geocoding|-message-bar|-size-matters|-sentry|-gesture-handler)?)))"
+    ],
+    "reporters": [
+      "default",
+      "jest-junit"
+    ],
+    "setupFiles": [
+      "react-native/jest/setup.js"
+    ],
+    "moduleNameMapper": {
+      "^Wedgekit(.*)$": "<rootDir>/submodules/wedgekit$1",
+      "^Statics(.*)$": "<rootDir>/src/statics$1",
+      "^Components(.*)$": "<rootDir>/src/components$1",
+      "^Redux(.*)$": "<rootDir>/src/redux$1",
+      "^Resources(.*)$": "<rootDir>/resources$1"
+    }
+  },
+  "jest-junit": {
+    "outputDirectory": "./reports/jest"
   }
 }

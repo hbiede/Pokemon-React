@@ -1,4 +1,11 @@
 /**
+ * The definitions of object types used in the project
+ *
+ * @format
+ * @flow strict-local
+ */
+
+/**
  * @typedef {Object} MoveRecord
  * @property {String} name
  * @property {String} type
@@ -21,15 +28,14 @@
  */
 
 /**
- * @typedef {Object} Stat
+ * @typedef {Object} Namable
  * @property {String} name
  */
 
 /**
  * @typedef {Object} StatCollection
- * @property {String} name
  * @property {Number} base_stat
- * @property {Stat} stat
+ * @property {Namable} stat
  */
 
 /**

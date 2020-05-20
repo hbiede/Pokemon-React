@@ -10,7 +10,7 @@ import {
   calculateDamage,
   findStat,
   formatAttackMessage,
-  titleCase,
+  capitalCase,
 } from '../utils';
 import {Button, Image, StyleSheet, Text, View} from 'react-native';
 import {Picker} from '@react-native-community/picker';
@@ -89,7 +89,7 @@ export class BattleView extends React.Component {
     let moves = pokemon.moves;
     let moveItems = [];
     for (let i = 0; i < moves.length; i++) {
-      let moveName = titleCase(moves[i].move.name);
+      let moveName = capitalCase(moves[i].move.name);
       let movePower: Number = -1;
       let moveAccuracy: Number = 100;
       let moveType: String = null;
@@ -127,13 +127,15 @@ export class BattleView extends React.Component {
       // Waiting on the opponent's move list to be loaded
       return (
         <Text>
-          Loading {titleCase(this.getOpponentPokemon().name)}'s Moves...
+          Loading {capitalCase(this.getOpponentPokemon().name)}'s Moves...
         </Text>
       );
     } else if (!this.state.userMoves.isLoaded) {
       // Waiting on the user's move list to be loaded
       return (
-        <Text>Loading {titleCase(this.getUserPokemon().name)}'s Moves...</Text>
+        <Text>
+          Loading {capitalCase(this.getUserPokemon().name)}'s Moves...
+        </Text>
       );
     } else if (this.state.movePickerItems.length === 0) {
       // Generate the user's picker entries
@@ -146,7 +148,7 @@ export class BattleView extends React.Component {
 
       // Map moves onto a list of Picker Item entries
       let movePickerItems = this.state.userMoves.moves.map((m, i) => {
-        return <Picker.Item label={titleCase(m.name)} value={i} key={i} />;
+        return <Picker.Item label={capitalCase(m.name)} value={i} key={i} />;
       });
       this.setState({movePickerItems: movePickerItems});
     }
@@ -233,12 +235,7 @@ export class BattleView extends React.Component {
     }
     const opponent = this.getOpponentPokemon();
     const movePerformance = calculateDamage(
-      isNaN(opponent.level) ? 1 : opponent.level,
-      move,
-      findStat(opponent, 'attack'),
-      findStat(this.getUserPokemon(), 'defense'),
-      findStat(opponent, 'speed'),
-      opponent.types,
+      move, opponent, this.getUserPokemon()
     );
     const userNewHealth = Math.max(
       0,
@@ -261,12 +258,9 @@ export class BattleView extends React.Component {
     const user = this.getUserPokemon();
     const move = this.state.userMoves.moves[this.state.selectedMoveIndex];
     const movePerformance = calculateDamage(
-      isNaN(user.level) ? 1 : user.level,
       move,
-      findStat(user, 'attack'),
-      findStat(this.getOpponentPokemon(), 'defense'),
-      findStat(user, 'speed'),
-      user.types,
+      user,
+      this.getOpponentPokemon(),
     );
     this.state.opponentHealth = Math.max(
       0,
@@ -346,7 +340,7 @@ export class BattleView extends React.Component {
             resizeMode="contain"
           />
           <Text style={styles.center}>
-            {titleCase(this.getOpponentPokemon().name)}
+            {capitalCase(this.getOpponentPokemon().name)}
             's Health: {this.state.opponentHealth}
           </Text>
           <Image
@@ -357,7 +351,7 @@ export class BattleView extends React.Component {
             resizeMode="contain"
           />
           <Text style={styles.center}>
-            {titleCase(this.getUserPokemon().name)}'s Health:{' '}
+            {capitalCase(this.getUserPokemon().name)}'s Health:{' '}
             {this.state.userHealth}
           </Text>
           <Text style={styles.center}>{this.state.opponentLastUsedMove}</Text>

@@ -8,7 +8,7 @@
 import React from 'react';
 import {Button, Text, View} from 'react-native';
 import {Picker} from '@react-native-community/picker';
-import {titleCase} from '../utils';
+import {capitalCase} from '../utils';
 
 /**
  * The number of Pokemon to include when downloading from the API (152 for first gen)
@@ -81,7 +81,7 @@ export class PokemonPickerView extends React.Component {
       let pokemonListEntries = this.state.listOfPokemon.map((s, i) => {
         return (
           <Picker.Item
-            label={`${titleCase(s.name)} - #${i + 1}`}
+            label={`${capitalCase(s.name)} - #${i + 1}`}
             value={i}
             key={i}
           />
