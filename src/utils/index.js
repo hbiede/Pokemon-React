@@ -35,7 +35,6 @@ export function findStat(userPokemon: Pokemon, statName: String): Number {
       return userPokemon.stats[i].base_stat;
     }
   }
-
   return -1;
 }
 
@@ -51,7 +50,6 @@ export function calculateDamage(
   user: Pokemon,
   opponent: Pokemon,
 ) {
-
   /**
    * Checks if the move performed gets a same-type attack bonus (STAB)
    * @param moveType {String} The type of the move performed

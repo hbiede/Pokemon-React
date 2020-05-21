@@ -398,4 +398,3 @@ export function attackAdvantage(
   }
   return advantage;
 }
-

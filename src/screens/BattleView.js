@@ -8,9 +8,9 @@
 import React from 'react';
 import {
   calculateDamage,
+  capitalCase,
   findStat,
   formatAttackMessage,
-  capitalCase,
 } from '../utils';
 import {Button, Image, StyleSheet, Text, View} from 'react-native';
 import {Picker} from '@react-native-community/picker';
@@ -59,14 +59,78 @@ export class BattleView extends React.Component {
   }
 
   /**
+   * Start a battle once the UI is ready
+   */
+  componentDidMount() {
+    this.startBattle();
+  }
+
+  /**
+   * Setups the data needed to start a new battle (be it the first, or a followup to a previous battle)
+   */
+  startBattle() {
+    // Used to trigger a re-render for new opponents
+    if (this.state.userLastUsedMove.length !== 0) {
+      this.setState({userLastUsedMove: '', opponentLastUsedMove: ''});
+    }
+
+    // Setup the opponent
+    let newOpponentIndex = Math.floor(
+      Math.random() * this.state.listOfPokemon.length,
+    );
+    this.setState({
+      currentOpponentIndex: newOpponentIndex,
+      opponentHealth: findStat(
+        this.state.listOfPokemon[newOpponentIndex],
+        'hp',
+      ),
+    }); // Must be a separate state to allow the Pokemon images to load prior to the moves loading
+    this.getMoves(this.state.listOfPokemon[newOpponentIndex]).then((result) =>
+      this.setState({
+        opponentMoves: {
+          moves: result,
+          isCopyCat: result.length === 0,
+          isLoaded: true,
+        },
+      }),
+    );
+
+    let stateUpdate = {};
+    if (this.state.userMoves.isLoaded) {
+      if (this.state.userMoves.isCopyCat) {
+        // Allow the Picker to have a new random move to copy for the new opponent
+        stateUpdate.movePickerItems = [];
+      }
+    } else {
+      this.getMoves(this.getUserPokemon())
+        .then(
+          (result) =>
+            (stateUpdate.userMoves = {
+              moves: result,
+              isCopyCat: result.length === 0,
+              isLoaded: true,
+            }),
+        )
+        .then(() => {
+          this.setState(stateUpdate);
+          this.getMovePicker();
+        });
+    }
+  }
+
+  /**
    * Get the Pokemon associated with the user
    * @return {Pokemon} the Pokemon associated with the user
    */
   getUserPokemon(): Pokemon {
-    return (
+    if (
       this.state.listOfPokemon &&
       this.state.listOfPokemon[this.state.selectedPokemonIndex]
-    );
+    ) {
+      return this.state.listOfPokemon[this.state.selectedPokemonIndex];
+    } else {
+      return null;
+    }
   }
 
   /**
@@ -74,10 +138,14 @@ export class BattleView extends React.Component {
    * @return {Pokemon} the Pokemon associated with the opponent
    */
   getOpponentPokemon(): Pokemon {
-    return (
+    if (
       this.state.listOfPokemon &&
       this.state.listOfPokemon[this.state.currentOpponentIndex]
-    );
+    ) {
+      return this.state.listOfPokemon[this.state.currentOpponentIndex];
+    } else {
+      return null;
+    }
   }
 
   /**
@@ -125,11 +193,15 @@ export class BattleView extends React.Component {
   getMovePicker(): React$Node {
     if (!this.state.opponentMoves.isLoaded) {
       // Waiting on the opponent's move list to be loaded
-      return (
-        <Text>
-          Loading {capitalCase(this.getOpponentPokemon().name)}'s Moves...
-        </Text>
-      );
+      if (this.getOpponentPokemon()) {
+        return (
+          <Text>
+            Loading {capitalCase(this.getOpponentPokemon().name)}'s Moves...
+          </Text>
+        );
+      } else {
+        return <Text>Selecting Opponent</Text>;
+      }
     } else if (!this.state.userMoves.isLoaded) {
       // Waiting on the user's move list to be loaded
       return (
@@ -141,9 +213,13 @@ export class BattleView extends React.Component {
       // Generate the user's picker entries
       if (this.state.userMoves.isCopyCat) {
         // Account for Pokemon who use their opponent's moves (ie Ditto)
-        this.state.userMoves.moves[0] = this.state.opponentMoves.moves[
-          Math.floor(Math.random() * this.state.opponentMoves.moves.length)
+        let currUserMoves = this.state.userMoves;
+        currUserMoves.moves = [
+          this.state.opponentMoves.moves[
+            Math.floor(Math.random() * this.state.opponentMoves.moves.length)
+          ],
         ];
+        this.setState(currUserMoves);
       }
 
       // Map moves onto a list of Picker Item entries
@@ -161,47 +237,6 @@ export class BattleView extends React.Component {
         {this.state.movePickerItems}
       </Picker>
     );
-  }
-
-  /**
-   * Setups the data needed to start a new battle (be it the first, or a followup to a previous battle)
-   * @return {Promise<void>}
-   */
-  async startBattle() {
-    let newOpponentIndex = Math.floor(
-      Math.random() * this.state.listOfPokemon.length,
-    );
-    this.state.currentOpponentIndex = newOpponentIndex;
-    this.state.opponentHealth = findStat(
-      this.state.listOfPokemon[newOpponentIndex],
-      'hp',
-    );
-
-    // Used to trigger a re-render for new opponents
-    if (this.state.userLastUsedMove.length !== 0) {
-      this.setState({userLastUsedMove: '', opponentLastUsedMove: ''});
-    }
-
-    let oppMoves = await this.getMoves(this.getOpponentPokemon());
-    this.state.opponentMoves = {
-      moves: oppMoves,
-      isCopyCat: oppMoves.length === 0,
-      isLoaded: true,
-    };
-    if (this.state.userMoves.isLoaded) {
-      if (this.state.userMoves.isCopyCat) {
-        // Allow the Picker to have a new random move to copy for the new opponent
-        this.state.movePickerItems = [];
-      }
-    } else {
-      let userMoves = await this.getMoves(this.getUserPokemon());
-      this.state.userMoves = {
-        moves: userMoves,
-        isCopyCat: userMoves.length === 0,
-        isLoaded: true,
-      };
-      this.getMovePicker();
-    }
   }
 
   /**
@@ -235,7 +270,9 @@ export class BattleView extends React.Component {
     }
     const opponent = this.getOpponentPokemon();
     const movePerformance = calculateDamage(
-      move, opponent, this.getUserPokemon()
+      move,
+      opponent,
+      this.getUserPokemon(),
     );
     const userNewHealth = Math.max(
       0,
@@ -262,11 +299,12 @@ export class BattleView extends React.Component {
       user,
       this.getOpponentPokemon(),
     );
-    this.state.opponentHealth = Math.max(
+    const newOppHealth = Math.max(
       0,
       this.state.opponentHealth - movePerformance.damage,
     );
     this.setState({
+      opponentHealth: newOppHealth,
       userLastUsedMove: formatAttackMessage(
         user.name,
         move.name,
@@ -287,12 +325,31 @@ export class BattleView extends React.Component {
       this.processOpponentAttack();
     }
     if (this.state.opponentHealth === 0) {
-      this.state.victories++;
+      this.setState({victories: this.state.victories + 1});
     }
   }
 
   render(): React$Node {
     if (this.getUserPokemon()) {
+      let opponentDisplay = <Text>Selecting opponent...</Text>;
+      if (this.getOpponentPokemon()) {
+        opponentDisplay = (
+          <View>
+            <Image
+              style={styles.opponentPokemon}
+              source={{
+                uri: this.getOpponentPokemon().sprites.front_default,
+              }}
+              resizeMode="contain"
+            />
+            <Text style={styles.center}>
+              {capitalCase(this.getOpponentPokemon().name)}
+              's Health: {this.state.opponentHealth}
+            </Text>
+          </View>
+        );
+      }
+
       let actionButton = null;
       if (
         this.state.movePickerItems.length > 0 &&
@@ -332,17 +389,7 @@ export class BattleView extends React.Component {
       return (
         <View>
           <Text style={styles.center}>{this.state.victories} Battle Wins</Text>
-          <Image
-            style={styles.opponentPokemon}
-            source={{
-              uri: this.getOpponentPokemon().sprites.front_default,
-            }}
-            resizeMode="contain"
-          />
-          <Text style={styles.center}>
-            {capitalCase(this.getOpponentPokemon().name)}
-            's Health: {this.state.opponentHealth}
-          </Text>
+          {opponentDisplay}
           <Image
             style={styles.userPokemon}
             source={{
