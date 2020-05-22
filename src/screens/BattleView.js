@@ -50,9 +50,6 @@ export class BattleView extends React.Component {
         selectedMoveIndex: 0,
         victories: 0,
       };
-
-      // noinspection JSIgnoredPromiseFromCall
-      this.startBattle();
     } else {
       this.state = {};
     }
