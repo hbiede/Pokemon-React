@@ -124,7 +124,6 @@ export class BattleView extends React.Component {
             stateUpdate.userMoves,
           );
           this.setState(stateUpdate);
-          this.getMovePicker();
         });
     }
   }
@@ -272,8 +271,9 @@ export class BattleView extends React.Component {
 
   /**
    * Chooses a move for the opponent to use and then performs the attack and updates the game state accordingly
+   * @return {Boolean} True if the opponent was knocked
    */
-  processOpponentAttack() {
+  processOpponentAttack(): Boolean {
     let move;
     if (this.state.opponentMoves.isCopyCat) {
       move = this.state.userMoves.moves[
@@ -290,24 +290,26 @@ export class BattleView extends React.Component {
       opponent,
       this.getUserPokemon(),
     );
-    const userNewHealth = Math.max(
+    const targetHealth = Math.max(
       0,
       this.state.userHealth - movePerformance.damage,
     );
     this.setState({
-      userHealth: userNewHealth,
+      userHealth: targetHealth,
       opponentLastUsedMove: formatAttackMessage(
         opponent.name,
         move.name,
         movePerformance,
       ),
     });
+    return targetHealth === 0;
   }
 
   /**
    * Performs the user chosen move and updates the game state accordingly
+   * @return {Boolean} True if the opponent was knocked
    */
-  processUserAttack() {
+  processUserAttack(): Boolean {
     const user = this.getUserPokemon();
     const move = this.state.userMoves.moves[this.state.selectedMoveIndex];
     const movePerformance = calculateDamage(
@@ -327,20 +329,22 @@ export class BattleView extends React.Component {
         movePerformance,
       ),
     });
+    return newOppHealth === 0;
   }
 
   /**
    * Process the user and opponent attacks in the order specified by {@link calculateFirstMover}
    */
   attack() {
+    let opponentDefeated;
     if (this.calculateFirstMover()) {
       this.processOpponentAttack();
-      this.processUserAttack();
+      opponentDefeated = this.processUserAttack();
     } else {
-      this.processUserAttack();
+      opponentDefeated = this.processUserAttack();
       this.processOpponentAttack();
     }
-    if (this.state.opponentHealth === 0) {
+    if (opponentDefeated) {
       this.setState({victories: this.state.victories + 1});
     }
   }
