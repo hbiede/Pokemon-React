@@ -59,4 +59,5 @@
  * @property {Array.<StatCollection>} stats
  * @property {PokemonCharacterSprite} sprites
  * @property {Array.<Type>} types
+ * @property {Number} level - Only used internally if set (setting currently unimplemented)
  */
