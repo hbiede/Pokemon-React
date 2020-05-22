@@ -376,7 +376,9 @@ export class BattleView extends React.Component {
           actionButton = (
             <Button
               color="#dc3545"
-              title="Restart"
+              title={`Your ${
+                this.getUserPokemon().name
+              } was knocked out. Restart?`}
               onPress={() =>
                 this.state.navigation.navigate('Pick your Pokemon', {
                   selectedPokemonIndex: this.state.selectedPokemonIndex,
@@ -390,7 +392,9 @@ export class BattleView extends React.Component {
           actionButton = (
             <Button
               color="#28a745"
-              title="New Opponent"
+              title={`You defeated ${
+                this.getOpponentPokemon().name
+              }. Battle again?`}
               onPress={() => this.startBattle()}
             />
           );
