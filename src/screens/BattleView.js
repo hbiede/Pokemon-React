@@ -405,7 +405,12 @@ export class BattleView extends React.Component {
         } else {
           // Battle continues
           actionButton = (
-            <Button title="Attack" onPress={() => this.attack()} />
+            <Button
+              title={`Use ${
+                this.state.userMoves.moves[this.state.selectedMoveIndex].name
+              }`}
+              onPress={() => this.attack()}
+            />
           );
         }
       }
