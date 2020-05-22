@@ -20,7 +20,7 @@ export class PokemonPickerView extends React.Component {
   constructor(props) {
     super(props);
 
-    // Reuse the existing local version of the pokemon list if given to the view
+    // Reuse the existing locally-cached version of the pokemon list if given to the view in the prop params
     let listOfPokemon: Array<Pokemon> = [];
     // noinspection JSUnresolvedVariable - Pokemon is being tested for existance
     if (props.route && props.route.params && props.route.params.pokemon) {
@@ -45,7 +45,7 @@ export class PokemonPickerView extends React.Component {
       selectedPokemonIndex: selectedPokemonIndex,
     };
     if (listOfPokemon.length === 0) {
-      // noinspection JSIgnoredPromiseFromCall
+      // noinspection JSIgnoredPromiseFromCall - void promise
       this.getPokemon();
     }
   }
@@ -68,6 +68,7 @@ export class PokemonPickerView extends React.Component {
         );
     }
     if (pokemonFetched.length > 0) {
+      // needs to setState instead of return to allow for a re-render
       this.setState({listOfPokemon: pokemonFetched});
     } else {
       this.setState({error: 'No Pokemon Found'});

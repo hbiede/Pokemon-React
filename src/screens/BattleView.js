@@ -104,12 +104,7 @@ export class BattleView extends React.Component {
     );
 
     let stateUpdate = {};
-    if (this.state.userMoves.isLoaded) {
-      if (this.state.userMoves.isCopyCat) {
-        // Allow the Picker to have a new random move to copy for the new opponent
-        stateUpdate.movePickerItems = [];
-      }
-    } else {
+    if (!this.state.userMoves.isLoaded) {
       this.getMoves(this.getUserPokemon())
         .then(
           (result) =>
@@ -120,9 +115,6 @@ export class BattleView extends React.Component {
             }),
         )
         .then(() => {
-          stateUpdate.movePickerItems = this.generateMovePickerItems(
-            stateUpdate.userMoves,
-          );
           this.setState(stateUpdate);
         });
     }
@@ -196,6 +188,11 @@ export class BattleView extends React.Component {
     return moveItems;
   }
 
+  /**
+   * Creates the Move {@link Picker} items for the user to be able to select a move to use in battle
+   * @param userMoves {{moves: Array.<MoveRecord>, isCopyCat: Boolean}} The moves to be used in generating the list
+   * @return {Array<Picker.Item>} The resulting {@link Picker} items
+   */
   generateMovePickerItems(userMoves: {
     moves: Array<MoveRecord>,
     isCopyCat: Boolean,
@@ -240,8 +237,6 @@ export class BattleView extends React.Component {
           Loading {capitalCase(this.getUserPokemon().name)}'s Moves...
         </Text>
       );
-    } else if (this.state.movePickerItems.length === 0) {
-      return <Text>Failed to load Move Selector</Text>;
     }
     return (
       <Picker
@@ -249,7 +244,7 @@ export class BattleView extends React.Component {
         onValueChange={(moveIndex) => {
           this.setState({selectedMoveIndex: moveIndex});
         }}>
-        {this.state.movePickerItems}
+        {this.generateMovePickerItems(this.state.userMoves)}
       </Picker>
     );
   }
@@ -371,10 +366,7 @@ export class BattleView extends React.Component {
       }
 
       let actionButton = null;
-      if (
-        this.state.movePickerItems.length > 0 &&
-        this.state.opponentMoves.isLoaded
-      ) {
+      if (this.state.userMoves.isLoaded && this.state.opponentMoves.isLoaded) {
         if (this.state.userHealth === 0) {
           // User Pokemon was knocked out, allow game restart (kicks the user back to the Pokemon picker page)
           actionButton = (
