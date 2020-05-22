@@ -44,7 +44,13 @@ export class PokemonPickerView extends React.Component {
       error: null,
       selectedPokemonIndex: selectedPokemonIndex,
     };
-    if (listOfPokemon.length === 0) {
+  }
+
+  /**
+   * Load the Pokemon (if necessary) once the component is going to mount
+   */
+  componentDidMount(): * {
+    if (this.state.listOfPokemon.length === 0) {
       // noinspection JSIgnoredPromiseFromCall - void promise
       this.getPokemon();
     }
