@@ -120,6 +120,9 @@ export class BattleView extends React.Component {
             }),
         )
         .then(() => {
+          stateUpdate.movePickerItems = this.generateMovePickerItems(
+            stateUpdate.userMoves,
+          );
           this.setState(stateUpdate);
           this.getMovePicker();
         });
@@ -194,6 +197,27 @@ export class BattleView extends React.Component {
     return moveItems;
   }
 
+  generateMovePickerItems(userMoves: {
+    moves: Array<MoveRecord>,
+    isCopyCat: Boolean,
+  }): Array<Picker.Item> {
+    // Generate the user's picker entries
+    let currUserMoves = userMoves;
+    if (userMoves.isCopyCat) {
+      // Account for Pokemon who use their opponent's moves (ie Ditto)
+      currUserMoves.moves = [
+        this.state.opponentMoves.moves[
+          Math.floor(Math.random() * this.state.opponentMoves.moves.length)
+        ],
+      ];
+    }
+
+    // Map moves onto a list of Picker Item entries
+    return currUserMoves.moves.map((m, i) => {
+      return <Picker.Item label={capitalCase(m.name)} value={i} key={i} />;
+    });
+  }
+
   /**
    * Convert the user's moves into a picker to allow for UI selection
    * @return {React$Node} A {@link Picker} if the moves have been loaded for both sides, else a {@link Text} describing what is causing the delay
@@ -218,23 +242,7 @@ export class BattleView extends React.Component {
         </Text>
       );
     } else if (this.state.movePickerItems.length === 0) {
-      // Generate the user's picker entries
-      if (this.state.userMoves.isCopyCat) {
-        // Account for Pokemon who use their opponent's moves (ie Ditto)
-        let currUserMoves = this.state.userMoves;
-        currUserMoves.moves = [
-          this.state.opponentMoves.moves[
-            Math.floor(Math.random() * this.state.opponentMoves.moves.length)
-          ],
-        ];
-        this.setState(currUserMoves);
-      }
-
-      // Map moves onto a list of Picker Item entries
-      let movePickerItems = this.state.userMoves.moves.map((m, i) => {
-        return <Picker.Item label={capitalCase(m.name)} value={i} key={i} />;
-      });
-      this.setState({movePickerItems: movePickerItems});
+      return <Text>Failed to load Move Selector</Text>;
     }
     return (
       <Picker
