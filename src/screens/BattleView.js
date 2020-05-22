@@ -63,9 +63,20 @@ export class BattleView extends React.Component {
   }
 
   /**
+   * Halt game loop on unmount
+   */
+  componentWillUnmount() {
+    this.setState({unmounting: true});
+  }
+
+  /**
    * Setups the data needed to start a new battle (be it the first, or a followup to a previous battle)
    */
   startBattle() {
+    if (this.state.unmatched) {
+      return;
+    }
+
     // Used to trigger a re-render for new opponents
     if (this.state.userLastUsedMove.length !== 0) {
       this.setState({userLastUsedMove: '', opponentLastUsedMove: ''});
